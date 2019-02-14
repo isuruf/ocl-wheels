@@ -12,7 +12,7 @@ curl -L -O http://cache.ruby-lang.org/pub/ruby/2.1/ruby-2.1.2.tar.gz
 tar -xf ruby-2.1.2.tar.gz
 pushd ruby-2.1.2
 ./configure
-make -j4
+make -j16
 make install
 popd
 
@@ -22,9 +22,10 @@ pushd ocl-icd
 autoreconf -i
 chmod +x configure
 ./configure --prefix=/usr
-make -j4
+make -j16
 make install
-cp COPYING /deps/licenses/OCL_ICD.COPYING
+# this is in pyopencl
+# cp COPYING /deps/licenses/OCL_ICD.COPYING
 popd
 
 # libhwloc for pocl
@@ -32,10 +33,10 @@ curl -L -O https://download.open-mpi.org/release/hwloc/v2.0/hwloc-2.0.3.tar.gz
 tar -xf hwloc-2.0.3.tar.gz
 pushd hwloc-2.0.3
 ./configure --disable-cairo --disable-opencl --disable-cuda --disable-nvml  --disable-gl --disable-libudev
-make -j4
+make -j16
 make install
 cp COPYING /deps/licenses/HWLOC.COPYING
-cp /usr/share/doc/libxml2-devel-*/Copyright /deps/license/libxml2.COPYING
+cp /usr/share/doc/libxml2-devel-*/Copyright /deps/licenses/libxml2.COPYING
 popd
 
 # newer cmake for LLVM
@@ -62,7 +63,7 @@ cmake -DPYTHON_EXECUTABLE=/opt/python/cp37-cp37m/bin/python \
       -DLLVM_ENABLE_TERMINFO=OFF \
       ..
 
-make -j4
+make -j16
 make install
 popd
 cp LICENSE.TXT /deps/licenses/LLVM_LICENSE.txt
@@ -85,7 +86,7 @@ cmake \
   -DLLVM_INCLUDE_TESTS=OFF \
   -DLLVM_INCLUDE_DOCS=OFF \
 ..
-make -j4
+make -j16
 make install
 popd
 cp LICENSE.TXT /deps/licenses/clang_LICENSE.txt
@@ -111,7 +112,7 @@ LDFLAGS="-Wl,--exclude-libs,ALL" cmake -DCMAKE_C_FLAGS="$EXTRA_FLAGS" \
     -DPOCL_INSTALL_ICD_VENDORDIR=/etc/OpenCL/vendors \
     ..
 
-make -j4
+make -j16
 make install
 popd
 cp COPYING /deps/licenses/POCL.COPYING
@@ -119,10 +120,10 @@ popd
 
 # Compile wheels
 PYBIN="/opt/python/cp37-cp37m/bin"
-"${PYBIN}/pip" wheel /io/pocl-binary-distribution -w wheelhouse/ --no-deps
+"${PYBIN}/pip" wheel /io -w wheelhouse/ --no-deps
 
 # Bundle license files and pocl
-/opt/_internal/cpython-3.6.*/bin/python /io/travis/fix-wheel.py
+/opt/_internal/cpython-3.6.*/bin/python /io/scripts/fix-wheel.py
 
 # Repair for pocl dependencies
 for whl in wheelhouse/*.whl; do
