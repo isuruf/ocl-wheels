@@ -1,0 +1,55 @@
+diff --git a/tmp/pocl-1.2/lib/CL/pocl_llvm_build.cc b/tmp/pocl-1.2/lib/CL/pocl_llvm_build.cc
+index 601eb72..b4a2499 100644
+--- a/tmp/pocl-1.2/lib/CL/pocl_llvm_build.cc
++++ b/tmp/pocl-1.2/lib/CL/pocl_llvm_build.cc
+@@ -412,6 +412,8 @@ int pocl_llvm_build_program(cl_program program,
+   std::string kernelh;
+   std::string BuiltinRenamesH;
+ 
++  const char * pyopencl_path = std::getenv("PYOPENCL_HOME");
++
+ #ifdef ENABLE_POCL_BUILDING
+   if (pocl_get_bool_option("POCL_BUILDING", 0)) {
+     kernelh  = SRCDIR;
+@@ -419,7 +421,11 @@ int pocl_llvm_build_program(cl_program program,
+   if (0) {
+ #endif
+   } else {
+-    kernelh = POCL_INSTALL_PRIVATE_DATADIR;
++    if (pyopencl_path != NULL) {
++       kernelh = std::string(pyopencl_path) + "/.libs/share/pocl";
++    } else {
++       kernelh = POCL_INSTALL_PRIVATE_DATADIR;
++    }
+   }
+   BuiltinRenamesH = kernelh;
+   kernelh += "/include/_kernel.h";
+@@ -428,7 +434,11 @@ int pocl_llvm_build_program(cl_program program,
+   po.Includes.push_back(BuiltinRenamesH);
+ #ifndef LLVM_OLDER_THAN_4_0
+   // Use Clang's opencl-c.h header.
+-  po.Includes.push_back(CLANG_RESOURCE_DIR "/include/opencl-c.h");
++  if (pyopencl_path != NULL) {
++      po.Includes.push_back(std::string(pyopencl_path) + "/.libs/share/pocl/opencl-c.h");
++  } else {
++      po.Includes.push_back(CLANG_RESOURCE_DIR "/include/opencl-c.h");
++  }
+ #endif
+   po.Includes.push_back(kernelh);
+   clang::TargetOptions &ta = pocl_build.getTargetOpts();
+@@ -831,8 +841,14 @@ kernel_library
+     kernellib += "/lib/kernel/";
+     kernellib += subdir;
+   } else // POCL_BUILDING == 0, use install dir
++#else
++  const char * pyopencl_path = std::getenv("PYOPENCL_HOME");
++  if (pyopencl_path != NULL) {
++      kernellib = std::string(pyopencl_path) + "/.libs/share/pocl";
++  } else {
++      kernellib = POCL_INSTALL_PRIVATE_DATADIR;
++  }
+ #endif
+-  kernellib = POCL_INSTALL_PRIVATE_DATADIR;
+   kernellib += "/kernel-";
+   kernellib += device->llvm_target_triplet;
+   if (is_host) {

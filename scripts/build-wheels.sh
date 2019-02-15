@@ -17,7 +17,7 @@ make install
 popd
 
 # OCL ICD loader
-git clone --branch packaging https://github.com/isuruf/ocl-icd
+git clone --branch packaging https://github.com/OCL-dev/ocl-icd
 pushd ocl-icd
 autoreconf -i
 chmod +x configure
@@ -92,9 +92,9 @@ popd
 cp LICENSE.TXT /deps/licenses/clang_LICENSE.txt
 popd
 
-curl -L -O https://github.com/pocl/pocl/archive/v1.2.tar.gz
-tar -xf v1.2.tar.gz
-pushd pocl-1.2
+git clone --branch v1.2 https://github.com/pocl/pocl
+git apply /io/patches/pocl-1.2-paths.patch
+pushd pocl
 sed -i 's/add_subdirectory("example2")//g' examples/CMakeLists.txt
 sed -i 's/add_subdirectory("example2a")//g' examples/CMakeLists.txt
 mkdir -p build
