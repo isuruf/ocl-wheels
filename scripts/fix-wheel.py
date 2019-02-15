@@ -35,12 +35,15 @@ def add_library():
             # copy licenses
             for lib_path in glob(LICENSES_PATH):
                 shutil.copy2(lib_path, os.path.join('pyopencl', '.libs'))
+            # Copy headers and bytecode files needed by pocl
             if not os.path.exists("pyopencl/.libs/share"):
                 os.makedirs("pyopencl/.libs/share")
             if os.path.exists(POCL_DATA_DEST):
                 shutil.rmtree(POCL_DATA_DEST)
             shutil.copytree(POCL_DATA, POCL_DATA_DEST)
             shutil.copy2(CLANG_HEADER, POCL_DATA_DEST)
+            # copy the linker
+            shutil.copy2("/usr/local/bin/lld", "pyopencl/.libs/ld.lld")
 
 def main():
     add_library()

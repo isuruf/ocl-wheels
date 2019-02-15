@@ -17,7 +17,7 @@ make install
 popd
 
 # OCL ICD loader
-git clone --branch packaging https://github.com/OCL-dev/ocl-icd
+git clone --branch v2.2.12 https://github.com/OCL-dev/ocl-icd
 pushd ocl-icd
 autoreconf -i
 chmod +x configure
@@ -92,9 +92,27 @@ popd
 cp LICENSE.TXT /deps/licenses/clang_LICENSE.txt
 popd
 
+# lld for pocl
+curl -L -O http://releases.llvm.org/6.0.1/lld-6.0.1.src.tar.xz
+unxz lld-6.0.1.src.tar.xz
+tar -xf lld-6.0.1.src.tar
+pushd lld-6.0.1.src
+mkdir -p build
+pushd build
+cmake \
+  -DCMAKE_INSTALL_PREFIX=/usr/local \
+  -DCMAKE_PREFIX_PATH=/usr/local \
+  -DCMAKE_BUILD_TYPE=Release \
+..
+make -j16
+make install
+popd
+cp LICENSE.TXT /deps/licenses/lld_LICENSE.txt
+popd
+
 git clone --branch v1.2 https://github.com/pocl/pocl
-git apply /io/patches/pocl-1.2-paths.patch
 pushd pocl
+git apply /io/patches/pocl-1.2-paths.patch
 sed -i 's/add_subdirectory("example2")//g' examples/CMakeLists.txt
 sed -i 's/add_subdirectory("example2a")//g' examples/CMakeLists.txt
 mkdir -p build
@@ -103,6 +121,7 @@ pushd build
 EXTRA_FLAGS="-D_BSD_SOURCE -D_ISOC99_SOURCE -D'htole32(x)=(x)' -D'htole64(x)=(x)' -D'htole16(x)=(x)' -D'le16toh(x)=(x)' -D'le32toh(x)=(x)' -D'le64toh(x)=(x)'"
 
 LDFLAGS="-Wl,--exclude-libs,ALL" cmake -DCMAKE_C_FLAGS="$EXTRA_FLAGS" \
+    -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_CXX_FLAGS="$EXTRA_FLAGS" \
     -DINSTALL_OPENCL_HEADERS="off" \
     -DKERNELLIB_HOST_CPU_VARIANTS=distro \

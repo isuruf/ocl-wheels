@@ -1,7 +1,43 @@
-diff --git a/tmp/pocl-1.2/lib/CL/pocl_llvm_build.cc b/tmp/pocl-1.2/lib/CL/pocl_llvm_build.cc
-index 601eb72..b4a2499 100644
---- a/tmp/pocl-1.2/lib/CL/pocl_llvm_build.cc
-+++ b/tmp/pocl-1.2/lib/CL/pocl_llvm_build.cc
+diff --git a/lib/CL/devices/common.c b/lib/CL/devices/common.c
+index 6dc18d0e..3df9e783 100644
+--- a/lib/CL/devices/common.c
++++ b/lib/CL/devices/common.c
+@@ -195,20 +195,27 @@ llvm_codegen (const char* tmpdir, cl_kernel kernel, cl_device_id device,
+                          kernel->name, tmp_module);
+ 
+   POCL_MSG_PRINT_INFO ("Linking final module\n");
+-  char *const args1[]
+ #ifndef POCL_ANDROID
+ /* use Clang as linker, when compiler-rt is available and needed */
++  char pocl_link_command[4096]
+ #if defined(ENABLE_POCL_FLOAT_CONVERSION) || defined(CLANG_HAS_RTLIB)
+-      = { CLANG,
++      = CLANG;
+ #else
+-      = { LINK_COMMAND,
++      = LINK_COMMAND;
+ #endif
++  if (getenv("PYOPENCL_HOME") != NULL) {
++    strcpy(pocl_link_command, getenv("PYOPENCL_HOME"));
++    strcat(pocl_link_command, "/.libs/ld.lld");
++  }
++  char *const args1[]
++      = { pocl_link_command,
+           "-o",
+           tmp_module,
+           tmp_objfile,
+-          HOST_LD_FLAGS_ARRAY,
++          "-shared",
+           NULL };
+ #else
++  char *const args1[]
+       = { POCL_ANDROID_PREFIX "/bin/ld",
+           "-o",
+           tmp_module,
+diff --git a/lib/CL/pocl_llvm_build.cc b/lib/CL/pocl_llvm_build.cc
+index 601eb729..6ba237ae 100644
+--- a/lib/CL/pocl_llvm_build.cc
++++ b/lib/CL/pocl_llvm_build.cc
 @@ -412,6 +412,8 @@ int pocl_llvm_build_program(cl_program program,
    std::string kernelh;
    std::string BuiltinRenamesH;
@@ -37,19 +73,23 @@ index 601eb72..b4a2499 100644
  #endif
    po.Includes.push_back(kernelh);
    clang::TargetOptions &ta = pocl_build.getTargetOpts();
-@@ -831,8 +841,14 @@ kernel_library
+@@ -830,9 +840,17 @@ kernel_library
+     kernellib = BUILDDIR;
      kernellib += "/lib/kernel/";
      kernellib += subdir;
-   } else // POCL_BUILDING == 0, use install dir
+-  } else // POCL_BUILDING == 0, use install dir
++  } else {// POCL_BUILDING == 0, use install dir
 +#else
-+  const char * pyopencl_path = std::getenv("PYOPENCL_HOME");
-+  if (pyopencl_path != NULL) {
-+      kernellib = std::string(pyopencl_path) + "/.libs/share/pocl";
-+  } else {
-+      kernellib = POCL_INSTALL_PRIVATE_DATADIR;
-+  }
++  {
  #endif
 -  kernellib = POCL_INSTALL_PRIVATE_DATADIR;
++    const char * pyopencl_path = std::getenv("PYOPENCL_HOME");
++    if (pyopencl_path != NULL) {
++      kernellib = std::string(pyopencl_path) + "/.libs/share/pocl";
++    } else {
++      kernellib = POCL_INSTALL_PRIVATE_DATADIR;
++    }
++  }
    kernellib += "/kernel-";
    kernellib += device->llvm_target_triplet;
    if (is_host) {
