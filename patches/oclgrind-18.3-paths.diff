@@ -1,0 +1,13 @@
+diff --git a/src/core/Program.cpp b/src/core/Program.cpp
+index c0b6e71..afa98f9 100644
+--- a/src/core/Program.cpp
++++ b/src/core/Program.cpp
+@@ -416,7 +416,7 @@ bool Program::build(const char *options, list<Header> headers)
+         if ((dirend = strrchr(libpath, '/')))
+ #endif
+         {
+-          const char *includes_relative = "/../include/oclgrind/";
++          const char *includes_relative = "/include/oclgrind/";
+           size_t length = dirend - libpath;
+           pchdir = new char[length + strlen(includes_relative) + 1];
+           strncpy(pchdir, libpath, length);
