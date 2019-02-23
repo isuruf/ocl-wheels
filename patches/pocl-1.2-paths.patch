@@ -19,7 +19,7 @@ index 6dc18d0e..3df9e783 100644
  #endif
 +  if (getenv("PYOPENCL_HOME") != NULL) {
 +    strcpy(pocl_link_command, getenv("PYOPENCL_HOME"));
-+    strcat(pocl_link_command, "/.libs/ld.lld");
++    strcat(pocl_link_command, "/../pocl_binary_distribution/.libs/ld.lld");
 +  }
 +  char *const args1[]
 +      = { pocl_link_command,
@@ -53,7 +53,7 @@ index 601eb729..6ba237ae 100644
    } else {
 -    kernelh = POCL_INSTALL_PRIVATE_DATADIR;
 +    if (pyopencl_path != NULL) {
-+       kernelh = std::string(pyopencl_path) + "/.libs/share/pocl";
++       kernelh = std::string(pyopencl_path) + "/../pocl_binary_distribution/.libs/share/pocl";
 +    } else {
 +       kernelh = POCL_INSTALL_PRIVATE_DATADIR;
 +    }
@@ -66,7 +66,7 @@ index 601eb729..6ba237ae 100644
    // Use Clang's opencl-c.h header.
 -  po.Includes.push_back(CLANG_RESOURCE_DIR "/include/opencl-c.h");
 +  if (pyopencl_path != NULL) {
-+      po.Includes.push_back(std::string(pyopencl_path) + "/.libs/share/pocl/opencl-c.h");
++      po.Includes.push_back(std::string(pyopencl_path) + "/../pocl_binary_distribution/.libs/share/pocl/opencl-c.h");
 +  } else {
 +      po.Includes.push_back(CLANG_RESOURCE_DIR "/include/opencl-c.h");
 +  }
@@ -85,7 +85,7 @@ index 601eb729..6ba237ae 100644
 -  kernellib = POCL_INSTALL_PRIVATE_DATADIR;
 +    const char * pyopencl_path = std::getenv("PYOPENCL_HOME");
 +    if (pyopencl_path != NULL) {
-+      kernellib = std::string(pyopencl_path) + "/.libs/share/pocl";
++      kernellib = std::string(pyopencl_path) + "/../pocl_binary_distribution/.libs/share/pocl";
 +    } else {
 +      kernellib = POCL_INSTALL_PRIVATE_DATADIR;
 +    }
