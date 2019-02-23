@@ -158,10 +158,6 @@ PYBIN="/opt/python/cp37-cp37m/bin"
 "${PYBIN}/pip" wheel /io/pocl -w wheelhouse/ --no-deps
 "${PYBIN}/pip" wheel /io/oclgrind -w wheelhouse/ --no-deps
 
-# Bundle license files and pocl
+# Bundle shared libraries
 /opt/_internal/cpython-3.6.*/bin/python /io/scripts/fix-wheel.py
 
-# Repair for pocl dependencies
-for whl in wheelhouse/*.whl; do
-    auditwheel repair "$whl" -w /io/wheelhouse/
-done
