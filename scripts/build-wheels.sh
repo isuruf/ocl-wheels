@@ -3,7 +3,8 @@ set -e -x
 
 mkdir -p /deps
 cd /deps
-mkdir -p licenses
+mkdir -p licenses/pocl
+mkdir -p licenses/oclgrind
 
 yum install -y git yum libxml2-devel xz
 
@@ -35,8 +36,8 @@ pushd hwloc-2.0.3
 ./configure --disable-cairo --disable-opencl --disable-cuda --disable-nvml  --disable-gl --disable-libudev
 make -j16
 make install
-cp COPYING /deps/licenses/HWLOC.COPYING
-cp /usr/share/doc/libxml2-devel-*/Copyright /deps/licenses/libxml2.COPYING
+cp COPYING /deps/licenses/pocl/HWLOC.COPYING
+cp /usr/share/doc/libxml2-devel-*/Copyright /deps/licenses/pocl/libxml2.COPYING
 popd
 
 # newer cmake for LLVM
@@ -66,7 +67,8 @@ cmake -DPYTHON_EXECUTABLE=/opt/python/cp37-cp37m/bin/python \
 make -j16
 make install
 popd
-cp LICENSE.TXT /deps/licenses/LLVM_LICENSE.txt
+cp LICENSE.TXT /deps/licenses/pocl/LLVM_LICENSE.txt
+cp LICENSE.TXT /deps/licenses/oclgrind/LLVM_LICENSE.txt
 popd
 
 # clang for pocl
@@ -89,7 +91,8 @@ cmake \
 make -j16
 make install
 popd
-cp LICENSE.TXT /deps/licenses/clang_LICENSE.txt
+cp LICENSE.TXT /deps/licenses/pocl/clang_LICENSE.txt
+cp LICENSE.TXT /deps/licenses/oclgrind/clang_LICENSE.txt
 popd
 
 # lld for pocl
@@ -107,7 +110,7 @@ cmake \
 make -j16
 make install
 popd
-cp LICENSE.TXT /deps/licenses/lld_LICENSE.txt
+cp LICENSE.TXT /deps/licenses/pocl/lld_LICENSE.txt
 popd
 
 git clone --branch v1.2 https://github.com/pocl/pocl
@@ -134,12 +137,24 @@ LDFLAGS="-Wl,--exclude-libs,ALL" cmake -DCMAKE_C_FLAGS="$EXTRA_FLAGS" \
 make -j16
 make install
 popd
-cp COPYING /deps/licenses/POCL.COPYING
+cp COPYING /deps/licenses/pocl/POCL.COPYING
+popd
+
+git clone --branch v18.3 https://github.com/jrprice/Oclgrind
+pushd Oclgrind
+mkdir build
+pushd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DLIBDIR_SUFFIX="" -DCMAKE_INSTALL_PREFIX=/usr/local
+make -j16
+make install
+popd
+cp LICENSE /deps/licenses/oclgrind/OCLGRIND_LICENSE.txt
 popd
 
 # Compile wheels
 PYBIN="/opt/python/cp37-cp37m/bin"
-"${PYBIN}/pip" wheel /io -w wheelhouse/ --no-deps
+"${PYBIN}/pip" wheel /io/pocl -w wheelhouse/ --no-deps
+"${PYBIN}/pip" wheel /io/oclgrind -w wheelhouse/ --no-deps
 
 # Bundle license files and pocl
 /opt/_internal/cpython-3.6.*/bin/python /io/scripts/fix-wheel.py
