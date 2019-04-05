@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 from distutils.core import setup
 
 setup(name='pocl_binary_distribution',
-      version='1.3',
+      version='1.3.post1',
       description='Pocl Binary Distribution to be used with PyOpenCL',
       author='Isuru Fernando',
       author_email='isuruf@gmail.com',

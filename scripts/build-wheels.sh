@@ -133,7 +133,7 @@ LDFLAGS="-Wl,--exclude-libs,ALL" cmake \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
     -DPOCL_INSTALL_ICD_VENDORDIR=/etc/OpenCL/vendors \
     -DENABLE_POCL_RELOCATION=yes \
-    -DPOCL_INSTALL_PRIVATE_DATADIR=/usr/local/lib/share/pocl \
+    -DPOCL_INSTALL_PRIVATE_DATADIR=/usr/pocl_binary_distribution/.libs/share/pocl \
     ..
 
 make -j16
