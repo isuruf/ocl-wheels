@@ -47,7 +47,7 @@ def fix_pocl():
             shutil.copytree(POCL_DATA, POCL_DATA_DEST)
             shutil.copy2(CLANG_HEADER, POCL_DATA_DEST)
             # copy the linker
-            shutil.copy2("/usr/local/bin/lld", "pocl_binary_distribution/.libs/ld.lld")
+            # shutil.copy2("/usr/local/bin/lld", "pocl_binary_distribution/.libs/ld.lld")
             # copy licenses
             if not os.path.exists(POCL_LICENSES_DEST):
                 os.makedirs(POCL_LICENSES_DEST)

@@ -44,11 +44,12 @@ popd
 /opt/python/cp37-cp37m/bin/pip install cmake
 export PATH="/opt/python/cp37-cp37m/lib/python3.7/site-packages/cmake/data/bin/:${PATH}"
 
+LLVM_VERSION=7.0.1
 # LLVM for pocl
-curl -L -O http://releases.llvm.org/6.0.1/llvm-6.0.1.src.tar.xz
-unxz llvm-6.0.1.src.tar.xz
-tar -xf llvm-6.0.1.src.tar
-pushd llvm-6.0.1.src
+curl -L -O http://releases.llvm.org/${LLVM_VERSION}/llvm-${LLVM_VERSION}.src.tar.xz
+unxz llvm-${LLVM_VERSION}.src.tar.xz
+tar -xf llvm-${LLVM_VERSION}.src.tar
+pushd llvm-${LLVM_VERSION}.src
 mkdir -p build
 pushd build
 cmake -DPYTHON_EXECUTABLE=/opt/python/cp37-cp37m/bin/python \
@@ -72,10 +73,10 @@ cp LICENSE.TXT /deps/licenses/oclgrind/LLVM_LICENSE.txt
 popd
 
 # clang for pocl
-curl -L -O http://releases.llvm.org/6.0.1/cfe-6.0.1.src.tar.xz
-unxz cfe-6.0.1.src.tar.xz
-tar -xf cfe-6.0.1.src.tar
-pushd cfe-6.0.1.src
+curl -L -O http://releases.llvm.org/${LLVM_VERSION}/cfe-${LLVM_VERSION}.src.tar.xz
+unxz cfe-${LLVM_VERSION}.src.tar.xz
+tar -xf cfe-${LLVM_VERSION}.src.tar
+pushd cfe-${LLVM_VERSION}.src
 mkdir -p build
 pushd build
 cmake \
@@ -96,10 +97,10 @@ cp LICENSE.TXT /deps/licenses/oclgrind/clang_LICENSE.txt
 popd
 
 # lld for pocl
-curl -L -O http://releases.llvm.org/6.0.1/lld-6.0.1.src.tar.xz
-unxz lld-6.0.1.src.tar.xz
-tar -xf lld-6.0.1.src.tar
-pushd lld-6.0.1.src
+curl -L -O http://releases.llvm.org/${LLVM_VERSION}/lld-${LLVM_VERSION}.src.tar.xz
+unxz lld-${LLVM_VERSION}.src.tar.xz
+tar -xf lld-${LLVM_VERSION}.src.tar
+pushd lld-${LLVM_VERSION}.src
 mkdir -p build
 pushd build
 cmake \
@@ -113,25 +114,23 @@ popd
 cp LICENSE.TXT /deps/licenses/pocl/lld_LICENSE.txt
 popd
 
-git clone --branch v1.2 https://github.com/pocl/pocl
+git clone --branch v1.3 https://github.com/pocl/pocl
 pushd pocl
-git apply /io/patches/pocl-1.2-paths.patch
-sed -i 's/add_subdirectory("example2")//g' examples/CMakeLists.txt
-sed -i 's/add_subdirectory("example2a")//g' examples/CMakeLists.txt
+git apply /io/patches/pocl-gh708.patch
+#sed -i 's/add_subdirectory("example2a")//g' examples/CMakeLists.txt
 mkdir -p build
 pushd build
 
-EXTRA_FLAGS="-D_BSD_SOURCE -D_ISOC99_SOURCE -D'htole32(x)=(x)' -D'htole64(x)=(x)' -D'htole16(x)=(x)' -D'le16toh(x)=(x)' -D'le32toh(x)=(x)' -D'le64toh(x)=(x)'"
-
-LDFLAGS="-Wl,--exclude-libs,ALL" cmake -DCMAKE_C_FLAGS="$EXTRA_FLAGS" \
+LDFLAGS="-Wl,--exclude-libs,ALL" cmake \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_CXX_FLAGS="$EXTRA_FLAGS" \
     -DINSTALL_OPENCL_HEADERS="off" \
     -DKERNELLIB_HOST_CPU_VARIANTS=distro \
     -DENABLE_ICD=on \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
     -DPOCL_INSTALL_ICD_VENDORDIR=/etc/OpenCL/vendors \
+    -DENABLE_POCL_RELOCATION=yes \
+    -DPOCL_INSTALL_PRIVATE_DATADIR=/usr/local/lib/share/pocl \
     ..
 
 make -j16

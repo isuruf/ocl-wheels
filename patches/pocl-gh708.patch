@@ -1,0 +1,428 @@
+From f00d2c7ae8f59b3fed0309215bc9a19619749550 Mon Sep 17 00:00:00 2001
+From: Isuru Fernando <isuruf@gmail.com>
+Date: Tue, 2 Apr 2019 13:58:20 -0500
+Subject: [PATCH 1/4] Enable pocl relocation
+
+With ENABLE_POCL_RELOCATION option, no hard coded paths are used in libpocl.so
+making it possible to relocate pocl
+---
+ CMakeLists.txt            | 10 ++++++++++
+ config.h.in.cmake         |  4 ++++
+ lib/CL/pocl_llvm_build.cc | 35 ++++++++++++++++++++++++++++++++---
+ 3 files changed, 46 insertions(+), 3 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 5d81a0165..17e07acc7 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -276,6 +276,9 @@ endif()
+ # for kernel-<target>.bc
+ set(POCL_INSTALL_PRIVATE_DATADIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/pocl" CACHE PATH "POCL private datadir")
+ 
++option(ENABLE_POCL_RELOCATION NO "Enable pocl relocation when compiled by changing internal paths to relative paths")
++file(RELATIVE_PATH POCL_INSTALL_PRIVATE_DATADIR_REL ${POCL_INSTALL_PUBLIC_LIBDIR} ${POCL_INSTALL_PRIVATE_DATADIR})
++
+ # for poclu.h
+ set(POCL_INSTALL_PUBLIC_HEADER_DIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}" CACHE PATH "POCL public header dir")
+ 
+@@ -1334,6 +1337,13 @@ if(UNIX)
+ 
+ endif()
+ 
++##########################################################
++
++if(ENABLE_POCL_RELOCATION)
++  install(FILES "${CLANG_RESOURCE_DIR}/include/opencl-c.h"
++         DESTINATION "${POCL_INSTALL_PRIVATE_DATADIR}/include")
++endif()
++
+ #############################################################
+ 
+ add_subdirectory("include")
+diff --git a/config.h.in.cmake b/config.h.in.cmake
+index 84d949688..27e6b9e20 100644
+--- a/config.h.in.cmake
++++ b/config.h.in.cmake
+@@ -29,6 +29,8 @@
+ 
+ #cmakedefine ENABLE_POCL_BUILDING
+ 
++#cmakedefine ENABLE_POCL_RELOCATION
++
+ #cmakedefine ENABLE_POCL_FLOAT_CONVERSION
+ 
+ #cmakedefine ENABLE_SLEEF
+@@ -161,6 +163,8 @@
+ 
+ #define POCL_INSTALL_PRIVATE_DATADIR "@POCL_INSTALL_PRIVATE_DATADIR@"
+ 
++#define POCL_INSTALL_PRIVATE_DATADIR_REL "@POCL_INSTALL_PRIVATE_DATADIR_REL@"
++
+ #cmakedefine POCL_USE_FAKE_ADDR_SPACE_IDS
+ 
+ #cmakedefine POCL_ASSERTS_BUILD
+diff --git a/lib/CL/pocl_llvm_build.cc b/lib/CL/pocl_llvm_build.cc
+index f0b897f48..5e2a1c1b1 100644
+--- a/lib/CL/pocl_llvm_build.cc
++++ b/lib/CL/pocl_llvm_build.cc
+@@ -68,6 +68,15 @@ IGNORE_COMPILER_WARNING("-Wstrict-aliasing")
+ #include "pocl_cache.h"
+ #include "LLVMUtils.h"
+ 
++#if defined(ENABLE_POCL_RELOCATION)
++#if defined(__linux__)
++#include <dlfcn.h>
++#elif defined(__APPLE__)
++#define _DARWIN_C_SOURCE
++#include <dlfcn.h>
++#endif
++#endif
++
+ using namespace clang;
+ using namespace llvm;
+ 
+@@ -172,6 +181,23 @@ static void get_build_log(cl_program program,
+ 
+ static llvm::Module *getKernelLibrary(cl_device_id device);
+ 
++static std::string get_pocl_private_data_dir() {
++#if defined(ENABLE_POCL_RELOCATION) && (defined(__APPLE__) || defined(__linux__))
++    Dl_info info;
++    if (dladdr((void*)get_pocl_private_data_dir, &info)) {
++        char const * soname = info.dli_fname;
++        std::string result = std::string(soname);
++        size_t last_slash = result.rfind('/');
++        result = result.substr(0, last_slash+1);
++        if (result.size() > 0) {
++            result += POCL_INSTALL_PRIVATE_DATADIR_REL;
++            return result;
++        }
++    }
++#endif
++    return POCL_INSTALL_PRIVATE_DATADIR;
++}
++
+ int pocl_llvm_build_program(cl_program program,
+                             unsigned device_i,
+                             const char *user_options_cstr,
+@@ -420,15 +446,18 @@ int pocl_llvm_build_program(cl_program program,
+   std::string KernelH;
+   std::string BuiltinRenamesH;
+   std::string PoclTypesH;
++  std::string ClangResourceDir;
+ 
+ #ifdef ENABLE_POCL_BUILDING
+   if (pocl_get_bool_option("POCL_BUILDING", 0)) {
+     IncludeRoot = SRCDIR;
++    ClangResourceDir = CLANG_RESOURCE_DIR;
+ #else
+   if (0) {
+ #endif
+   } else {
+-    IncludeRoot = POCL_INSTALL_PRIVATE_DATADIR;
++    IncludeRoot = get_pocl_private_data_dir();
++    ClangResourceDir = IncludeRoot;
+   }
+   KernelH = IncludeRoot + "/include/_kernel.h";
+   BuiltinRenamesH = IncludeRoot + "/include/_builtin_renames.h";
+@@ -438,7 +467,7 @@ int pocl_llvm_build_program(cl_program program,
+   po.Includes.push_back(BuiltinRenamesH);
+ #ifndef LLVM_OLDER_THAN_4_0
+   // Use Clang's opencl-c.h header.
+-  po.Includes.push_back(CLANG_RESOURCE_DIR "/include/opencl-c.h");
++  po.Includes.push_back(ClangResourceDir + "/include/opencl-c.h");
+ #endif
+   po.Includes.push_back(KernelH);
+   clang::TargetOptions &ta = pocl_build.getTargetOpts();
+@@ -837,7 +866,7 @@ static llvm::Module* getKernelLibrary(cl_device_id device)
+     kernellib += subdir;
+   } else // POCL_BUILDING == 0, use install dir
+ #endif
+-  kernellib = POCL_INSTALL_PRIVATE_DATADIR;
++  kernellib = get_pocl_private_data_dir();
+   kernellib += "/kernel-";
+   kernellib += device->llvm_target_triplet;
+   if (is_host) {
+
+From 8d3ba35eae2773ab8e7116124c9739e67678ff85 Mon Sep 17 00:00:00 2001
+From: Isuru Fernando <isuruf@gmail.com>
+Date: Wed, 3 Apr 2019 23:28:08 -0500
+Subject: [PATCH 2/4] Remove redundant -lm
+
+---
+ lib/CL/devices/basic/basic.c  | 2 +-
+ lib/CL/devices/hsa/pocl-hsa.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/lib/CL/devices/basic/basic.c b/lib/CL/devices/basic/basic.c
+index 611ef649c..94a2f3f6c 100644
+--- a/lib/CL/devices/basic/basic.c
++++ b/lib/CL/devices/basic/basic.c
+@@ -173,7 +173,7 @@ static cl_device_partition_property basic_partition_properties[1] = { 0 };
+ 
+ 
+ static const char *final_ld_flags[] =
+-  {"-lm", "-nostartfiles", HOST_LD_FLAGS_ARRAY, NULL};
++  {"-nostartfiles", HOST_LD_FLAGS_ARRAY, NULL};
+ 
+ void
+ pocl_init_cpu_device_infos (cl_device_id dev)
+diff --git a/lib/CL/devices/hsa/pocl-hsa.c b/lib/CL/devices/hsa/pocl-hsa.c
+index 2ac3da8e4..d991aef0d 100644
+--- a/lib/CL/devices/hsa/pocl-hsa.c
++++ b/lib/CL/devices/hsa/pocl-hsa.c
+@@ -351,7 +351,7 @@ setup_agent_memory_regions_callback(hsa_region_t region, void* data)
+ #define HSA_NUM_KNOWN_HSA_AGENTS 2
+ 
+ static const char *default_native_final_linkage_flags[] =
+-  {"-lm", "-nostartfiles", HOST_LD_FLAGS_ARRAY, NULL};
++  {"-nostartfiles", HOST_LD_FLAGS_ARRAY, NULL};
+ 
+ static const char *phsa_native_device_aux_funcs[] =
+   {"_pocl_run_all_wgs", "_pocl_finish_all_wgs", "_pocl_spawn_wg", NULL};
+
+From 82f2c7bb1c436a04f7cd7b00eea17df636d7d6c5 Mon Sep 17 00:00:00 2001
+From: Isuru Fernando <isuruf@gmail.com>
+Date: Wed, 3 Apr 2019 23:30:55 -0500
+Subject: [PATCH 3/4] Don't link to libm if ENABLE_POCL_RELOCATION
+
+libm.so might not be available after relocation (only libm.so.6)
+Since pocl itself links to libm.so.6, there's no need to link to
+libm by a kernel.
+---
+ CMakeLists.txt        | 11 +++++++----
+ lib/CL/CMakeLists.txt |  2 +-
+ 2 files changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 17e07acc7..771170d69 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -638,14 +638,17 @@ if(UNIX)
+     # ld: warning: -macosx_version_min not specificed, assuming 10.7
+     # suppress them with -w.
+     if(LINK_WITH_CLANG)
+-      set(DEFAULT_HOST_LD_FLAGS "-dynamiclib -w -lm")
++      set(DEFAULT_HOST_LD_FLAGS "-dynamiclib -w")
+     else()
+-      set(DEFAULT_HOST_LD_FLAGS "-dylib -w -lm")
++      set(DEFAULT_HOST_LD_FLAGS "-dylib -w")
+     endif()
+   elseif(ANDROID_COMPILER)
+-    set(DEFAULT_HOST_LD_FLAGS "-L/system/lib/ -shared -ldl -lc -lm /system/lib/crtbegin_so.o /system/lib/crtend_so.o")
++    set(DEFAULT_HOST_LD_FLAGS "-L/system/lib/ -shared -ldl -lc /system/lib/crtbegin_so.o /system/lib/crtend_so.o")
+   else()
+-    set(DEFAULT_HOST_LD_FLAGS "-shared -lm")
++    set(DEFAULT_HOST_LD_FLAGS "-shared")
++  endif()
++  if (NOT ENABLE_POCL_RELOCATION)
++    set(DEFAULT_HOST_LD_FLAGS "${DEFAULT_HOST_LD_FLAGS} -lm")
+   endif()
+   set(LIBMATH "-lm")
+ elseif(WIN32)
+diff --git a/lib/CL/CMakeLists.txt b/lib/CL/CMakeLists.txt
+index 14b1534b6..70ddf9b92 100644
+--- a/lib/CL/CMakeLists.txt
++++ b/lib/CL/CMakeLists.txt
+@@ -186,7 +186,7 @@ else()
+   set(POCL_PUBLIC_LINK_LIST "${LTDL_LIB}" ${CMAKE_THREAD_LIBS_INIT} ${POCL_DEVICES_LINK_LIST} ${LTTNG_UST_LDFLAGS})
+ endif()
+ 
+-set(POCL_PRIVATE_LINK_LIST ${CLANG_LIBFILES} ${POCL_LLVM_LIBS} ${LLVM_SYSLIBS})
++set(POCL_PRIVATE_LINK_LIST ${CLANG_LIBFILES} ${POCL_LLVM_LIBS} ${LLVM_SYSLIBS} ${LIBMATH})
+ 
+ if(SANITIZER_OPTIONS)
+   list(INSERT POCL_PUBLIC_LINK_LIST 0 ${SANITIZER_LIBS})
+
+From 5edd2ff61a520b42ee28b066d3b678d1f2716584 Mon Sep 17 00:00:00 2001
+From: Isuru Fernando <isuruf@gmail.com>
+Date: Thu, 4 Apr 2019 00:39:05 -0500
+Subject: [PATCH 4/4] Use LLD libraries
+
+---
+ cmake/LLVM.cmake          | 15 ++++++++++
+ lib/CL/CMakeLists.txt     |  2 +-
+ lib/CL/devices/common.c   | 19 ++++++++++--
+ lib/CL/pocl_llvm.h        |  4 +++
+ lib/CL/pocl_llvm_build.cc | 61 ++++++++++++++++++++++++++++++++++-----
+ 5 files changed, 89 insertions(+), 12 deletions(-)
+
+diff --git a/cmake/LLVM.cmake b/cmake/LLVM.cmake
+index 355b8355e..633c48484 100644
+--- a/cmake/LLVM.cmake
++++ b/cmake/LLVM.cmake
+@@ -227,6 +227,21 @@ set(CLANG_LIBNAMES clangCodeGen clangFrontendTool clangFrontend clangDriver clan
+     clangStaticAnalyzerFrontend clangStaticAnalyzerCheckers
+     clangStaticAnalyzerCore clangAnalysis clangEdit clangAST clangLex clangBasic)
+ 
++if (ENABLE_POCL_RELOCATION)
++    if(LLVM_OLDER_THAN_6_0)
++        set(LLD_LIBNAMES lldELF lldConfig lldCore ${LLD_LIBNAMES})
++    else()
++        set(LLD_LIBNAMES lldELF lldCommon ${LLD_LIBNAMES})
++    endif()
++    foreach(LIBNAME ${LLD_LIBNAMES})
++      find_library(C_LIBFILE_${LIBNAME} NAMES "${LIBNAME}" HINTS "${LLVM_LIBDIR}")
++      list(APPEND LLD_LIBFILES "${C_LIBFILE_${LIBNAME}}")
++      if(CMAKE_SYSTEM_NAME MATCHES "Linux")
++        set(LLVM_LDFLAGS "${LLVM_LDFLAGS} -Wl,--exclude-libs,lib${LIBNAME}")
++      endif()
++    endforeach()
++endif()
++
+ foreach(LIBNAME ${CLANG_LIBNAMES})
+   find_library(C_LIBFILE_${LIBNAME} NAMES "${LIBNAME}" HINTS "${LLVM_LIBDIR}")
+   list(APPEND CLANG_LIBFILES "${C_LIBFILE_${LIBNAME}}")
+diff --git a/lib/CL/CMakeLists.txt b/lib/CL/CMakeLists.txt
+index 70ddf9b92..bcca5ac32 100644
+--- a/lib/CL/CMakeLists.txt
++++ b/lib/CL/CMakeLists.txt
+@@ -186,7 +186,7 @@ else()
+   set(POCL_PUBLIC_LINK_LIST "${LTDL_LIB}" ${CMAKE_THREAD_LIBS_INIT} ${POCL_DEVICES_LINK_LIST} ${LTTNG_UST_LDFLAGS})
+ endif()
+ 
+-set(POCL_PRIVATE_LINK_LIST ${CLANG_LIBFILES} ${POCL_LLVM_LIBS} ${LLVM_SYSLIBS} ${LIBMATH})
++set(POCL_PRIVATE_LINK_LIST ${LLD_LIBFILES} ${CLANG_LIBFILES} ${POCL_LLVM_LIBS} ${LLVM_SYSLIBS} ${LIBMATH})
+ 
+ if(SANITIZER_OPTIONS)
+   list(INSERT POCL_PUBLIC_LINK_LIST 0 ${SANITIZER_LIBS})
+diff --git a/lib/CL/devices/common.c b/lib/CL/devices/common.c
+index 371bbfeba..919dcce2e 100644
+--- a/lib/CL/devices/common.c
++++ b/lib/CL/devices/common.c
+@@ -192,10 +192,19 @@ llvm_codegen (char *output, unsigned device_i, cl_kernel kernel,
+ 
+   POCL_MSG_PRINT_INFO ("Linking final module\n");
+ 
+-#ifdef LLVM_OLDER_THAN_5_0
++#if defined(LLVM_OLDER_THAN_5_0) || defined(ENABLE_POCL_RELOCATION)
+   /* with older LLVMs, link by invoking ld or clang */
+   char *const args1[]
+-#if defined(LINK_WITH_CLANG)
++#if defined(ENABLE_POCL_RELOCATION)
++      = {    // path here is used only to detect the driver mode
++#if defined(__APPLE__)
++         "/bin/ld.64",
++#elif defined(_WIN32)
++         "lld-link.exe",
++#else
++         "/bin/ld.lld",
++#endif
++#elif defined(LINK_WITH_CLANG)
+       = { CLANG,
+ #else
+       = { LINK_COMMAND,
+@@ -205,10 +214,14 @@ llvm_codegen (char *output, unsigned device_i, cl_kernel kernel,
+           tmp_objfile,
+           HOST_LD_FLAGS_ARRAY,
+           NULL };
++#ifdef ENABLE_POCL_RELOCATION
++  error = pocl_invoke_lld (args1);
++#else
+   error = pocl_run_command (args1);
++#endif
+ 
+ #else
+-  /* Link through Clang driver interface who knows the correct toolchains
++  /* Link through Clang/lld driver interface who knows the correct toolchains
+      for all of its targets.  */
+   const char *cmd_line[64] =
+     {CLANG, "-o", tmp_module, tmp_objfile};
+diff --git a/lib/CL/pocl_llvm.h b/lib/CL/pocl_llvm.h
+index 3a9e97ab4..de2f0ace2 100644
+--- a/lib/CL/pocl_llvm.h
++++ b/lib/CL/pocl_llvm.h
+@@ -128,6 +128,10 @@ int pocl_llvm_link_program(cl_program program,
+ int pocl_invoke_clang(cl_device_id Device, const char** Args);
+ #endif
+ 
++#ifdef ENABLE_POCL_RELOCATION
++int pocl_invoke_lld(char* const* Args);
++#endif
++
+ #ifdef __GNUC__
+ #pragma GCC visibility pop
+ #endif
+diff --git a/lib/CL/pocl_llvm_build.cc b/lib/CL/pocl_llvm_build.cc
+index 5e2a1c1b1..3c90450b8 100644
+--- a/lib/CL/pocl_llvm_build.cc
++++ b/lib/CL/pocl_llvm_build.cc
+@@ -53,6 +53,20 @@ IGNORE_COMPILER_WARNING("-Wstrict-aliasing")
+ 
+ #include "llvm/Support/MutexGuard.h"
+ 
++#if defined(ENABLE_POCL_RELOCATION)
++#if defined(__linux__)
++#include <dlfcn.h>
++#elif defined(__APPLE__)
++#define _DARWIN_C_SOURCE
++#include <dlfcn.h>
++#endif
++#ifndef LLVM_OLDER_THAN_6_0
++#include <lld/Common/Driver.h>
++#else
++#include <lld/Driver/Driver.h>
++#endif
++#endif
++
+ #include <iostream>
+ #include <sstream>
+ 
+@@ -68,14 +82,6 @@ IGNORE_COMPILER_WARNING("-Wstrict-aliasing")
+ #include "pocl_cache.h"
+ #include "LLVMUtils.h"
+ 
+-#if defined(ENABLE_POCL_RELOCATION)
+-#if defined(__linux__)
+-#include <dlfcn.h>
+-#elif defined(__APPLE__)
+-#define _DARWIN_C_SOURCE
+-#include <dlfcn.h>
+-#endif
+-#endif
+ 
+ using namespace clang;
+ using namespace llvm;
+@@ -959,3 +965,42 @@ int pocl_invoke_clang(cl_device_id Device, const char** Args) {
+ 
+ }
+ #endif
++
++#ifdef ENABLE_POCL_RELOCATION
++/**
++ * Invoke the ld.lld compiler through its Driver API.
++ *
++ * @param Args the command line arguments that would be passed to lld
++ *             (a NULL terminated list). Args[0] should be the path to
++ *             the Clang binary.
++ * @return 0 on success, error code otherwise.
++ */
++int pocl_invoke_lld(char* const* Args) {
++  char * const*ArgsEnd = Args;
++  while (*ArgsEnd++ != nullptr) {}
++
++  llvm::ArrayRef<const char*> ArgsArray(Args, ArgsEnd);
++
++  bool success = false;
++#if defined(__APPLE__)
++#ifdef LLVM_OLDER_THAN_7_0
++  success = lld::mach_o::link(ArgsArray);
++#else
++  success = lld::mach_o::link(ArgsArray, false);
++#endif
++#elif defined(__linux__)
++  success = lld::elf::link(ArgsArray, false);
++#elif defined(_WIN32)
++#ifdef LLVM_OLDER_THAN_7_0
++  success = lld::coff::link(ArgsArray);
++#else
++  success = lld::coff::link(ArgsArray, false);
++#endif
++#endif
++  if (!success) {
++     return -1;
++  } else {
++     return 0;
++  }
++}
++#endif
