@@ -8,8 +8,7 @@ from auditwheel.repair import copylib
 from subprocess import check_output, check_call
 
 WHEELS_PATH='wheelhouse/*.whl'
-POCL_DATA="/usr/local/share/pocl/"
-CLANG_HEADER="/usr/local/lib/clang/6.0.1/include/opencl-c.h"
+POCL_DATA="/usr/local/lib/share/pocl/"
 POCL_DATA_DEST="pocl_binary_distribution/.libs/share/pocl"
 POCL_LICENSES_DEST="pocl_binary_distribution/.libs/share/pocl/licenses"
 OCLGRIND_LICENSES_DEST="oclgrind_binary_distribution/.libs/share/oclgrind/licenses"
@@ -45,7 +44,6 @@ def fix_pocl():
             if os.path.exists(POCL_DATA_DEST):
                 shutil.rmtree(POCL_DATA_DEST)
             shutil.copytree(POCL_DATA, POCL_DATA_DEST)
-            shutil.copy2(CLANG_HEADER, POCL_DATA_DEST)
             # copy the linker
             # shutil.copy2("/usr/local/bin/lld", "pocl_binary_distribution/.libs/ld.lld")
             # copy licenses

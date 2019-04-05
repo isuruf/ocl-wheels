@@ -6,7 +6,7 @@ cd /deps
 mkdir -p licenses/pocl
 mkdir -p licenses/oclgrind
 
-yum install -y git yum libxml2-devel xz
+yum install -y git yum xz
 
 # Need ruby for ocl-icd
 curl -L -O http://cache.ruby-lang.org/pub/ruby/2.1/ruby-2.1.2.tar.gz
@@ -33,11 +33,10 @@ popd
 curl -L -O https://download.open-mpi.org/release/hwloc/v2.0/hwloc-2.0.3.tar.gz
 tar -xf hwloc-2.0.3.tar.gz
 pushd hwloc-2.0.3
-./configure --disable-cairo --disable-opencl --disable-cuda --disable-nvml  --disable-gl --disable-libudev
+./configure --disable-cairo --disable-opencl --disable-cuda --disable-nvml  --disable-gl --disable-libudev --disable-libxml2
 make -j16
 make install
 cp COPYING /deps/licenses/pocl/HWLOC.COPYING
-cp /usr/share/doc/libxml2-devel-*/Copyright /deps/licenses/pocl/libxml2.COPYING
 popd
 
 # newer cmake for LLVM
@@ -63,6 +62,8 @@ cmake -DPYTHON_EXECUTABLE=/opt/python/cp37-cp37m/bin/python \
       -DLLVM_INCLUDE_DOCS=OFF \
       -DLLVM_INCLUDE_EXAMPLES=OFF \
       -DLLVM_ENABLE_TERMINFO=OFF \
+      -DLLVM_ENABLE_LIBXML2=OFF \
+      -DLLVM_ENABLE_ZLIB=OFF \
       ..
 
 make -j16
@@ -88,7 +89,9 @@ cmake \
   -DCLANG_INCLUDE_DOCS=OFF \
   -DLLVM_INCLUDE_TESTS=OFF \
   -DLLVM_INCLUDE_DOCS=OFF \
-..
+  -DLLVM_ENABLE_LIBXML2=OFF \
+  -DLLVM_ENABLE_ZLIB=OFF \
+  ..
 make -j16
 make install
 popd
@@ -117,7 +120,7 @@ popd
 git clone --branch v1.3 https://github.com/pocl/pocl
 pushd pocl
 git apply /io/patches/pocl-gh708.patch
-#sed -i 's/add_subdirectory("example2a")//g' examples/CMakeLists.txt
+sed -i 's/add_subdirectory("matrix1")//g' examples/CMakeLists.txt
 mkdir -p build
 pushd build
 
