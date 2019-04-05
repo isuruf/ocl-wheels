@@ -144,6 +144,7 @@ popd
 
 git clone --branch v18.3 https://github.com/jrprice/Oclgrind
 pushd Oclgrind
+git cherry-pick fa307108de205e76fffbcd8424f3811187cb121d --no-commit
 git cherry-pick 3bc49030703f5dc943a9ceaa01cebe1edb96df11 --no-commit
 git apply /io/patches/oclgrind-18.3-paths.diff
 mkdir build
