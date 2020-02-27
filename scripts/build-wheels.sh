@@ -40,7 +40,7 @@ cp COPYING /deps/licenses/pocl/HWLOC.COPYING
 popd
 
 # newer cmake for LLVM
-/opt/python/cp37-cp37m/bin/pip install cmake
+/opt/python/cp37-cp37m/bin/pip install "cmake==3.12.0"
 export PATH="/opt/python/cp37-cp37m/lib/python3.7/site-packages/cmake/data/bin/:${PATH}"
 
 LLVM_VERSION=7.0.1
@@ -124,7 +124,7 @@ sed -i 's/add_subdirectory("matrix1")//g' examples/CMakeLists.txt
 mkdir -p build
 pushd build
 
-LDFLAGS="-Wl,--exclude-libs,ALL" cmake \
+LDFLAGS="-Wl,--exclude-libs,ALL" CFLAGS="-g" cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DINSTALL_OPENCL_HEADERS="off" \
     -DKERNELLIB_HOST_CPU_VARIANTS=distro \

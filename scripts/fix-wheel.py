@@ -43,7 +43,7 @@ def fix_pocl():
                 os.makedirs("pocl_binary_distribution/.libs/share")
             if os.path.exists(POCL_DATA_DEST):
                 shutil.rmtree(POCL_DATA_DEST)
-            shutil.copytree(POCL_DATA, POCL_DATA_DEST)
+            shutil.copytree("/usr/" + POCL_DATA_DEST, POCL_DATA_DEST)
             # copy the linker
             # shutil.copy2("/usr/local/bin/lld", "pocl_binary_distribution/.libs/ld.lld")
             # copy licenses
@@ -86,6 +86,8 @@ def fix_oclgrind():
             # Copy headers needed by oclgrind
             if not os.path.exists(OCL_DATA_DEST):
                 os.makedirs(OCL_DATA_DEST)
+            for h_file in glob("/usr/local/include/oclgrind/*.h"):
+                shutil.copy2(h_file, OCL_DATA_DEST)
             for pch_file in glob("/usr/local/include/oclgrind/*.pch"):
                 shutil.copy2(pch_file, OCL_DATA_DEST)
             # copy licenses
