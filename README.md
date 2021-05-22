@@ -14,7 +14,9 @@ packages to install binaries of `pocl` and `oclgrind` there.
 
 To build the wheels, run
 
+   ```bash
    scripts/run_docker_build.sh
+   ```
 
 To update the version of pocl, there are several places to update
 
@@ -23,3 +25,6 @@ To update the version of pocl, there are several places to update
    2. pocl source version [here](scripts/build-wheels.sh)
 
 Similar for oclgrind
+
+To update the version of OpenCL loader, see PyOpenCL script
+[here](https://github.com/inducer/pyopencl/blob/main/scripts/build-wheels.sh)
