@@ -6,19 +6,10 @@ cd /deps
 mkdir -p licenses/pocl
 mkdir -p licenses/oclgrind
 
-yum install -y git yum xz
-
-# Need ruby for ocl-icd
-curl -L -O http://cache.ruby-lang.org/pub/ruby/2.1/ruby-2.1.2.tar.gz
-tar -xf ruby-2.1.2.tar.gz
-pushd ruby-2.1.2
-./configure
-make -j16
-make install
-popd
+yum install -y git yum xz ruby
 
 # OCL ICD loader
-git clone --branch v2.2.12 https://github.com/OCL-dev/ocl-icd
+git clone --branch v2.3.1 https://github.com/OCL-dev/ocl-icd
 pushd ocl-icd
 autoreconf -i
 chmod +x configure
@@ -39,9 +30,12 @@ make install
 cp COPYING /deps/licenses/pocl/HWLOC.COPYING
 popd
 
+PYTHON_PREFIX=/opt/python/cp310-cp310
+PYTHON_VER=3.10
+
 # newer cmake for LLVM
-/opt/python/cp37-cp37m/bin/pip install "cmake==3.12.0"
-export PATH="/opt/python/cp37-cp37m/lib/python3.7/site-packages/cmake/data/bin/:${PATH}"
+$PYTHON_PREFIX/bin/pip install "cmake==3.24.1.1"
+export PATH="$PYTHON_PREFIX/lib/$PYTHON_VER/site-packages/cmake/data/bin/:${PATH}"
 
 LLVM_VERSION=7.0.1
 # LLVM for pocl
@@ -51,7 +45,7 @@ tar -xf llvm-${LLVM_VERSION}.src.tar
 pushd llvm-${LLVM_VERSION}.src
 mkdir -p build
 pushd build
-cmake -DPYTHON_EXECUTABLE=/opt/python/cp37-cp37m/bin/python \
+cmake -DPYTHON_EXECUTABLE=$PYTHON_PREFIX/bin/python \
       -DCMAKE_INSTALL_PREFIX=/usr/local \
       -DLLVM_TARGETS_TO_BUILD=host \
       -DCMAKE_BUILD_TYPE=Release \
@@ -117,12 +111,16 @@ popd
 cp LICENSE.TXT /deps/licenses/pocl/lld_LICENSE.txt
 popd
 
-git clone --branch v1.3 https://github.com/pocl/pocl
+git clone --branch v3.0 https://github.com/pocl/pocl
 pushd pocl
+sed -i.bak 's/"-lm",//g' lib/CL/devices/common.c
+sed -i.bak 's/-dynamiclib -w -lm/-dynamiclib -w/g' CMakeLists.txt
 git apply /io/patches/pocl-gh708.patch
 sed -i 's/add_subdirectory("matrix1")//g' examples/CMakeLists.txt
 mkdir -p build
 pushd build
+
+export EXTRA_HOST_LD_FLAGS="$EXTRA_HOST_LD_FLAGS -nodefaultlibs"
 
 LDFLAGS="-Wl,--exclude-libs,ALL" CFLAGS="-g" cmake \
     -DCMAKE_BUILD_TYPE=Release \
@@ -130,9 +128,9 @@ LDFLAGS="-Wl,--exclude-libs,ALL" CFLAGS="-g" cmake \
     -DKERNELLIB_HOST_CPU_VARIANTS=distro \
     -DENABLE_ICD=on \
     -DCMAKE_INSTALL_LIBDIR=lib \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DCMAKE_INSTALL_PREFIX="/usr/local" \
+    -DENABLE_LOADABLE_DRIVERS=no \
     -DPOCL_INSTALL_ICD_VENDORDIR=/etc/OpenCL/vendors \
-    -DENABLE_POCL_RELOCATION=yes \
     -DPOCL_INSTALL_PRIVATE_DATADIR=/usr/pocl_binary_distribution/.libs/share/pocl \
     ..
 
@@ -142,11 +140,9 @@ popd
 cp COPYING /deps/licenses/pocl/POCL.COPYING
 popd
 
-git clone --branch v18.3 https://github.com/jrprice/Oclgrind
+git clone --branch v21.10 https://github.com/jrprice/Oclgrind
 pushd Oclgrind
-git cherry-pick fa307108de205e76fffbcd8424f3811187cb121d --no-commit
-git cherry-pick 3bc49030703f5dc943a9ceaa01cebe1edb96df11 --no-commit
-git apply /io/patches/oclgrind-18.3-paths.diff
+git apply /io/patches/oclgrind-21.10-paths.diff
 mkdir build
 pushd build
 cmake .. -DCMAKE_BUILD_TYPE=Release -DLIBDIR_SUFFIX="" -DCMAKE_INSTALL_PREFIX=/usr/local
@@ -157,10 +153,10 @@ cp LICENSE /deps/licenses/oclgrind/OCLGRIND_LICENSE.txt
 popd
 
 # Compile wheels
-PYBIN="/opt/python/cp37-cp37m/bin"
+PYBIN="$PYTHON_PREFIX/bin"
 "${PYBIN}/pip" wheel /io/pocl -w wheelhouse/ --no-deps
 "${PYBIN}/pip" wheel /io/oclgrind -w wheelhouse/ --no-deps
 
 # Bundle shared libraries
-/opt/_internal/cpython-3.6.*/bin/python /io/scripts/fix-wheel.py
-
+"${PYBIN}/python" -m pip install auditwheel
+"${PYBIN}/python" /io/scripts/fix-wheel.py
