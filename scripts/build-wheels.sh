@@ -37,16 +37,16 @@ PYTHON_VER=3.10
 $PYTHON_PREFIX/bin/pip install "cmake==3.24.1.1"
 export PATH="$PYTHON_PREFIX/lib/$PYTHON_VER/site-packages/cmake/data/bin/:${PATH}"
 
-LLVM_VERSION=7.0.1
+LLVM_VERSION=14.0.6
 # LLVM for pocl
-curl -L -O http://releases.llvm.org/${LLVM_VERSION}/llvm-${LLVM_VERSION}.src.tar.xz
-unxz llvm-${LLVM_VERSION}.src.tar.xz
-tar -xf llvm-${LLVM_VERSION}.src.tar
-pushd llvm-${LLVM_VERSION}.src
+curl -L -O https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/llvm-project-${LLVM_VERSION}.src.tar.xz
+unxz llvm-project-${LLVM_VERSION}.src.tar.xz
+tar -xf llvm-project-${LLVM_VERSION}.src.tar
+pushd llvm-project-${LLVM_VERSION}.src
 mkdir -p build
 pushd build
 cmake -DPYTHON_EXECUTABLE=$PYTHON_PREFIX/bin/python \
-      -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -DCMAKE_INSTALL_PREFIX="/usr/local" \
       -DLLVM_TARGETS_TO_BUILD=host \
       -DCMAKE_BUILD_TYPE=Release \
       -DLLVM_ENABLE_RTTI=ON \
@@ -55,68 +55,26 @@ cmake -DPYTHON_EXECUTABLE=$PYTHON_PREFIX/bin/python \
       -DLLVM_INCLUDE_UTILS=ON \
       -DLLVM_INCLUDE_DOCS=OFF \
       -DLLVM_INCLUDE_EXAMPLES=OFF \
+      -DLLVM_INCLUDE_BENCHMARKS=OFF \
       -DLLVM_ENABLE_TERMINFO=OFF \
       -DLLVM_ENABLE_LIBXML2=OFF \
       -DLLVM_ENABLE_ZLIB=OFF \
-      ..
+	  -DLLVM_ENABLE_PROJECTS="llvm;clang;lld" \
+      ../llvm
 
 make -j16
 make install
 popd
-cp LICENSE.TXT /deps/licenses/pocl/LLVM_LICENSE.txt
-cp LICENSE.TXT /deps/licenses/oclgrind/LLVM_LICENSE.txt
-popd
-
-# clang for pocl
-curl -L -O http://releases.llvm.org/${LLVM_VERSION}/cfe-${LLVM_VERSION}.src.tar.xz
-unxz cfe-${LLVM_VERSION}.src.tar.xz
-tar -xf cfe-${LLVM_VERSION}.src.tar
-pushd cfe-${LLVM_VERSION}.src
-mkdir -p build
-pushd build
-cmake \
-  -DCMAKE_INSTALL_PREFIX=/usr/local \
-  -DCMAKE_PREFIX_PATH=/usr/local \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DLLVM_ENABLE_RTTI=ON \
-  -DCLANG_INCLUDE_TESTS=OFF \
-  -DCLANG_INCLUDE_DOCS=OFF \
-  -DLLVM_INCLUDE_TESTS=OFF \
-  -DLLVM_INCLUDE_DOCS=OFF \
-  -DLLVM_ENABLE_LIBXML2=OFF \
-  -DLLVM_ENABLE_ZLIB=OFF \
-  ..
-make -j16
-make install
-popd
-cp LICENSE.TXT /deps/licenses/pocl/clang_LICENSE.txt
-cp LICENSE.TXT /deps/licenses/oclgrind/clang_LICENSE.txt
-popd
-
-# lld for pocl
-curl -L -O http://releases.llvm.org/${LLVM_VERSION}/lld-${LLVM_VERSION}.src.tar.xz
-unxz lld-${LLVM_VERSION}.src.tar.xz
-tar -xf lld-${LLVM_VERSION}.src.tar
-pushd lld-${LLVM_VERSION}.src
-mkdir -p build
-pushd build
-cmake \
-  -DCMAKE_INSTALL_PREFIX=/usr/local \
-  -DCMAKE_PREFIX_PATH=/usr/local \
-  -DCMAKE_BUILD_TYPE=Release \
-..
-make -j16
-make install
-popd
-cp LICENSE.TXT /deps/licenses/pocl/lld_LICENSE.txt
+cp llvm/LICENSE.TXT /deps/licenses/pocl/LLVM_LICENSE.txt
+cp llvm/LICENSE.TXT /deps/licenses/oclgrind/LLVM_LICENSE.txt
 popd
 
 git clone --branch v3.0 https://github.com/pocl/pocl
 pushd pocl
 sed -i.bak 's/"-lm",//g' lib/CL/devices/common.c
 sed -i.bak 's/-dynamiclib -w -lm/-dynamiclib -w/g' CMakeLists.txt
+sed -i.bak 's/add_subdirectory("matrix1")//g' examples/CMakeLists.txt
 git apply /io/patches/pocl-gh708.patch
-sed -i 's/add_subdirectory("matrix1")//g' examples/CMakeLists.txt
 mkdir -p build
 pushd build
 
@@ -132,6 +90,7 @@ LDFLAGS="-Wl,--exclude-libs,ALL" CFLAGS="-g" cmake \
     -DENABLE_LOADABLE_DRIVERS=no \
     -DPOCL_INSTALL_ICD_VENDORDIR=/etc/OpenCL/vendors \
     -DPOCL_INSTALL_PRIVATE_DATADIR=/usr/pocl_binary_distribution/.libs/share/pocl \
+    -DSTATIC_LLVM=ON \
     ..
 
 make -j16
@@ -140,8 +99,9 @@ popd
 cp COPYING /deps/licenses/pocl/POCL.COPYING
 popd
 
-git clone --branch v21.10 https://github.com/jrprice/Oclgrind
+git clone https://github.com/jrprice/Oclgrind
 pushd Oclgrind
+git reset --hard accf518f8623548417c344a0193aa9b531cc9486
 git apply /io/patches/oclgrind-21.10-paths.diff
 mkdir build
 pushd build

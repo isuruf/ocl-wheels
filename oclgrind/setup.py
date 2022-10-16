@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 from distutils.core import setup
 
 setup(name='oclgrind_binary_distribution',
-      version='18.3.post2',
+      version='19.10',
       description='Oclgrind Binary Distribution to be used with PyOpenCL',
       author='Isuru Fernando',
       author_email='isuruf@gmail.com',

@@ -5,6 +5,7 @@ from glob import glob
 
 from auditwheel import wheeltools
 from auditwheel.repair import copylib
+from auditwheel.patcher import Patchelf
 from subprocess import check_output, check_call
 
 WHEELS_PATH='wheelhouse/*.whl'
@@ -31,7 +32,7 @@ def fix_pocl():
             for lib in ["pocl"]:
                 libpath = "/usr/local/lib/lib{}.so".format(lib)
                 soname = check_output(['patchelf', '--print-soname', libpath]).decode().split()[0]
-                new_soname, new_path = copylib(libpath, "pocl_binary_distribution/.libs")
+                new_soname, new_path = copylib(libpath, "pocl_binary_distribution/.libs", patcher=Patchelf())
                 soname_map[lib] = (soname, new_soname, new_path)
             # set rpath of pocl
             check_call(['patchelf', '--force-rpath', '--set-rpath', "$ORIGIN", soname_map["pocl"][2]])
@@ -51,7 +52,7 @@ def fix_pocl():
                 os.makedirs(POCL_LICENSES_DEST)
             for lib_path in glob("/deps/licenses/pocl/*"):
                 shutil.copy2(lib_path, POCL_LICENSES_DEST)
-        check_call(["auditwheel", "repair", fname, "-w", "wheelhouse_repaired"])
+        check_call(["auditwheel", "repair", fname, "-w", "wheelhouse_repaired", "--lib-sdir", "/.libs"])
         for fname in glob("wheelhouse_repaired/*.whl"):
             print('Processing', fname)
             with wheeltools.InWheel(fname, fname):
@@ -76,7 +77,7 @@ def fix_oclgrind():
             for lib in ["oclgrind", "oclgrind-rt-icd"]:
                 libpath = "/usr/local/lib/lib{}.so".format(lib)
                 soname = check_output(['patchelf', '--print-soname', libpath]).decode().split()[0]
-                new_soname, new_path = copylib(libpath, "oclgrind_binary_distribution/.libs")
+                new_soname, new_path = copylib(libpath, "oclgrind_binary_distribution/.libs", patcher=Patchelf())
                 soname_map[lib] = (soname, new_soname, new_path)
             # set rpath of oclgrind
             check_call(['patchelf', '--force-rpath', '--set-rpath', "$ORIGIN", soname_map["oclgrind-rt-icd"][2]])
@@ -95,7 +96,7 @@ def fix_oclgrind():
                 os.makedirs(OCLGRIND_LICENSES_DEST)
             for lib_path in glob("/deps/licenses/oclgrind/*"):
                 shutil.copy2(lib_path, OCLGRIND_LICENSES_DEST)
-        check_call(["auditwheel", "repair", fname, "-w", "wheelhouse_repaired"])
+        check_call(["auditwheel", "repair", fname, "-w", "wheelhouse_repaired", "--lib-sdir", "/.libs"])
         for fname in glob("wheelhouse_repaired/*.whl"):
             print('Processing', fname)
             with wheeltools.InWheel(fname, fname):
